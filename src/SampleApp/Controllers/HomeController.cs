@@ -1,24 +1,26 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Http;
-using SampleApp.Models;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
+using Microsoft.AspNetCore.WebHooks;
+using Microsoft.Extensions.Logging;
+using SampleApp.Models;
 
 namespace SampleApp.Controllers
 {
     public class HomeController : Controller
     {
+        private readonly ILogger _logger;
         private readonly FunctionsRouteTable _routeTable;
 
-        public HomeController(FunctionsRouteTable routeTable)
+        public HomeController(FunctionsRouteTable routeTable, ILoggerFactory loggerFactory)
         {
+            _logger = loggerFactory.CreateLogger<HomeController>();
             _routeTable = routeTable;
         }
-        
+
         public IActionResult Index()
         {
             var entries = _routeTable.GetEntries();
@@ -29,12 +31,21 @@ namespace SampleApp.Controllers
         [HttpPost]
         public IActionResult Index([FromForm(Name = "entries")] string entriesText)
         {
-            var templates = entriesText.Split(new char[] { '\r', '\n', '\t', ' ' }, StringSplitOptions.RemoveEmptyEntries);
+            var templates = entriesText.Split(
+                new char[] { '\r', '\n', '\t', ' ' },
+                StringSplitOptions.RemoveEmptyEntries);
 
-            var entries = templates.Select(t => new FunctionsRouteTable.Entry(t, "github", async (c) =>
-            {
-                await c.Response.WriteAsync($"Hello! I'm {t}");
-            })).ToArray();
+            var entries = templates
+                .Select(t => new FunctionsRouteTable.Entry(
+                    t,
+                    GitHubConstants.ReceiverName,
+                    id: null,
+                    execute: async c =>
+                    {
+                        await c.Response.WriteAsync($"Hello! I'm {t}");
+                        return Ok();
+                    }))
+                .ToArray();
 
             _routeTable.Update(entries);
 
@@ -44,8 +55,23 @@ namespace SampleApp.Controllers
 
         public IActionResult DumpRoutes([FromServices] IActionDescriptorCollectionProvider actions)
         {
-            var action = actions.ActionDescriptors.Items;
-            return Ok();
+            var items = actions.ActionDescriptors.Items;
+            foreach (var item in items)
+            {
+                if (!item.DisplayName.Contains(nameof(FunctionController), StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                _logger.LogInformation(
+                    0,
+                    "{DescriptorName} ({DescriptorId}): {Template}",
+                    item.DisplayName,
+                    item.Id,
+                    item.AttributeRouteInfo.Template);
+            }
+
+            return RedirectToAction(nameof(Index));
         }
 
         public IActionResult Error()

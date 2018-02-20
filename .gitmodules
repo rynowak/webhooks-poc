@@ -1,3 +1,0 @@
-[submodule "submodules/WebHooks"]
-	path = submodules/WebHooks
-	url = https://github.com/aspnet/WebHooks
