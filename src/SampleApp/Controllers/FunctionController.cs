@@ -1,11 +1,8 @@
-﻿using System.Threading.Tasks;
-using System.Xml.Linq;
-using Microsoft.AspNetCore.Http;
+﻿using System.Diagnostics;
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.WebHooks;
-using Microsoft.AspNetCore.WebHooks.Metadata;
 using Microsoft.Extensions.Logging;
-using Newtonsoft.Json.Linq;
 
 namespace SampleApp.Controllers
 {
@@ -19,49 +16,26 @@ namespace SampleApp.Controllers
         }
 
         [Duplicate]
-        [Consumes("application/json", "application/*+json", "text/json")]
-        [GeneralWebHook(BodyType = WebHookBodyType.Json)]
-        public Task<IActionResult> Execute(JContainer data)
+        [GeneralWebHook]
+        public Task<IActionResult> Execute(string receiverName, string receiverId)
         {
-            _logger.LogInformation(0, "Received {DataType}: {Data}", nameof(JContainer), data.ToString());
-            return Execute();
-        }
+            _logger.LogInformation(
+                0,
+                $"{nameof(Execute)} handling WebHook request with receiver '{{ReceiverName}}' and id '{{Id}}'.",
+                receiverName,
+                receiverId);
 
-        [Duplicate]
-        [Consumes("application/x-www-form-urlencoded", "multipart/form-data")]
-        [GeneralWebHook(BodyType = WebHookBodyType.Form)]
-        public Task<IActionResult> Execute(IFormCollection data)
-        {
-            _logger.LogInformation(1, "Received {DataType}:", nameof(IFormCollection));
-            foreach (var kvp in data)
-            {
-                _logger.LogInformation(2, "{DataKey}: '{DataValues}'", kvp.Key, kvp.Value.ToString());
-            }
-
-            return Execute();
-        }
-
-        [Duplicate]
-        [Consumes("application/xml", "application/*+xml", "text/xml")]
-        [GeneralWebHook(BodyType = WebHookBodyType.Xml)]
-        public Task<IActionResult> Execute(XElement data)
-        {
-            _logger.LogInformation(3, "Received {DataType}: {Data}", nameof(XElement), data.ToString());
-            return Execute();
-        }
-
-        private async Task<IActionResult> Execute()
-        {
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(ModelState);
-            }
+            _logger.LogInformation(
+                1,
+                $"{nameof(Execute)} received Content-Type {{ContentType}} data.",
+                Request.ContentType);
 
             var entry = (FunctionsRouteTable.Entry)ControllerContext.ActionDescriptor.Properties[
                 typeof(FunctionsRouteTable.Entry)];
-            await entry.Execute(ControllerContext.HttpContext);
+            Debug.Assert(string.Equals(receiverName, entry.Receiver, System.StringComparison.OrdinalIgnoreCase));
+            Debug.Assert(string.Equals(receiverId, entry.Id, System.StringComparison.OrdinalIgnoreCase));
 
-            return Ok();
+            return entry.Execute(ControllerContext.HttpContext);
         }
     }
 }

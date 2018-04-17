@@ -55,10 +55,12 @@ namespace SampleApp.Controllers
 
         public IActionResult DumpRoutes([FromServices] IActionDescriptorCollectionProvider actions)
         {
-            var items = actions.ActionDescriptors.Items;
-            foreach (var item in items)
+            var actionDescriptors = actions.ActionDescriptors.Items;
+            foreach (var actionDescriptor in actionDescriptors)
             {
-                if (!item.DisplayName.Contains(nameof(FunctionController), StringComparison.OrdinalIgnoreCase))
+                if (!actionDescriptor.DisplayName.Contains(
+                    nameof(FunctionController),
+                    StringComparison.OrdinalIgnoreCase))
                 {
                     continue;
                 }
@@ -66,9 +68,34 @@ namespace SampleApp.Controllers
                 _logger.LogInformation(
                     0,
                     "{DescriptorName} ({DescriptorId}): {Template}",
-                    item.DisplayName,
-                    item.Id,
-                    item.AttributeRouteInfo.Template);
+                    actionDescriptor.DisplayName,
+                    actionDescriptor.Id,
+                    actionDescriptor.AttributeRouteInfo.Template);
+                foreach (var kvp in actionDescriptor.RouteValues)
+                {
+                    _logger.LogInformation(
+                        1,
+                        "Route Value '{RouteValueKey}': '{RouteValueValue}'",
+                        kvp.Key,
+                        kvp.Value);
+                }
+
+                foreach (var constraint in actionDescriptor.ActionConstraints)
+                {
+                    _logger.LogInformation(2, "Constraint: '{ConstraintType}'", constraint.GetType());
+                }
+
+                foreach (var filter in actionDescriptor.FilterDescriptors)
+                {
+                    if (filter.Filter is ServiceFilterAttribute serviceFilter)
+                    {
+                        _logger.LogInformation(3, "Filter: '{FilterType}'", serviceFilter.ServiceType);
+                    }
+                    else
+                    {
+                        _logger.LogInformation(4, "Filter: '{FilterType}'", filter.Filter.GetType());
+                    }
+                }
             }
 
             return RedirectToAction(nameof(Index));
