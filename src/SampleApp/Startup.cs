@@ -8,24 +8,17 @@ namespace SampleApp
 {
     public class Startup
     {
-        public Startup(IConfiguration configuration)
-        {
-            Configuration = configuration;
-        }
-
-        public IConfiguration Configuration { get; }
-
-        public FunctionsRouteTable RouteTable { get; } = new FunctionsRouteTable();
+        private readonly FunctionsRouteTable _routeTable = new FunctionsRouteTable();
 
         public void ConfigureServices(IServiceCollection services)
         {
-            services.AddSingleton(RouteTable);
-            services.AddSingleton<IActionDescriptorChangeProvider>(RouteTable);
+            services.AddSingleton(_routeTable);
+            services.AddSingleton<IActionDescriptorChangeProvider>(_routeTable);
 
             services
                 .AddMvc(options =>
                 {
-                    options.Conventions.Add(new DuplicateConvention(RouteTable));
+                    options.Conventions.Add(new DuplicateConvention(_routeTable));
                 })
                 .AddGitHubWebHooks();
         }

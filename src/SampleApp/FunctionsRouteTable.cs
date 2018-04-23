@@ -58,17 +58,17 @@ namespace SampleApp
 
         public class Entry
         {
-            public Entry(string template, string reciever, string id, Func<HttpContext, Task<IActionResult>> execute)
+            public Entry(string template, string receiver, string id, Func<HttpContext, Task<IActionResult>> execute)
             {
                 Template = template;
-                Reciever = reciever;
+                Receiver = receiver;
                 Id = id;
                 Execute = execute;
             }
 
             public string Template { get; }
 
-            public string Reciever { get; }
+            public string Receiver { get; }
 
             // !!! Always null in this sample. Would be used in real life.
             public string Id { get; }

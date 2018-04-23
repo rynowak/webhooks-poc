@@ -1,4 +1,5 @@
-﻿using System.Linq;
+﻿using System.Collections.Generic;
+using System.Linq;
 using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Mvc.ApplicationModels;
 using Microsoft.AspNetCore.WebHooks;
@@ -33,16 +34,10 @@ namespace SampleApp
                 foreach (var entry in entries)
                 {
                     var newAction = new ActionModel(action);
-                    var selector = newAction.Selectors.Single();
+                    UpdateValues(newAction.RouteValues, entry);
 
-                    // !!! entry.Template would be fine as-is if route (or route template) contains {webHookReceiver}
-                    // !!! and {id} route values. WebHooks constraints and filters read these route values.
-                    // !!!
-                    // !!! A Functions constraint that maps from the unique function path to the necessary route
-                    // !!! values would also work. That constraint must have Order < -500.
-                    // !!!
-                    // !!! Would not need Entry.Reciever or Entry.Id if GetFullTemplate(...) were unnecessary.
-                    selector.AttributeRouteModel.Template = GetFullTemplate(entry.Template, entry.Reciever, entry.Id);
+                    var selector = newAction.Selectors.Single();
+                    selector.AttributeRouteModel.Template = entry.Template;
 
                     newAction.Properties.Add(typeof(FunctionsRouteTable.Entry), entry);
 
@@ -51,36 +46,27 @@ namespace SampleApp
             }
         }
 
-        private static string AddTrailingSlash(string template)
+        // entry.Template alone is sufficient for WebHooks if it contains {webHookReceiver} and {id} route values.
+        // WebHook constraints and filters read these route values.
+        //
+        // If the template is insufficient, add missing route values to the ActionModel. WebHook constraints read these
+        // from the ActionDescriptor and filters execute after the values are copied to the request's RouteData.
+        //
+        // A Functions constraint that maps from the unique function path to the necessary route values would also
+        // work. That constraint must have Order less than -500 i.e. execute before any WebHook constraint.
+        private static void UpdateValues(IDictionary<string, string> routeValues, FunctionsRouteTable.Entry entry)
         {
-            if (string.IsNullOrEmpty(template))
-            {
-                return template;
-            }
-
-            if (template[template.Length - 1] != '/')
-            {
-                return template + "/";
-            }
-
-            return template;
-        }
-
-        private static string GetFullTemplate(string template, string receiver, string id)
-        {
+            var template = entry.Template;
             if (!_receiverMatcher.IsMatch(template))
             {
-                template = AddTrailingSlash(template);
-                template += $"{{{WebHookConstants.ReceiverKeyName}={receiver}}}";
+                routeValues.Add(WebHookConstants.ReceiverKeyName, entry.Receiver);
             }
 
+            var id = entry.Id;
             if (!string.IsNullOrEmpty(id) && !_idMatcher.IsMatch(template))
             {
-                template = AddTrailingSlash(template);
-                template += $"{{{WebHookConstants.IdKeyName}={id}}}";
+                routeValues.Add(WebHookConstants.IdKeyName, id);
             }
-
-            return template;
         }
     }
 }
