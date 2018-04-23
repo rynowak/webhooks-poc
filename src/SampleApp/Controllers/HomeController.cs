@@ -43,7 +43,7 @@ namespace SampleApp.Controllers
                     execute: async c =>
                     {
                         await c.Response.WriteAsync($"Hello! I'm {t}");
-                        return Ok();
+                        return new EmptyResult();
                     }))
                 .ToArray();
 
